@@ -1,6 +1,7 @@
 """
 Функции для работы с базой данных.
 """
+import json
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import User, Quest, ChatHistory

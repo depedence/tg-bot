@@ -3,7 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 
 from config.settings import BOT_TOKEN
-from bot.handlers import basic
+from bot.handlers import basic, admin
 from database.database import init_db
 from services.scheduler_service import setup_scheduler
 
@@ -16,6 +16,7 @@ async def main():
     dp = Dispatcher()
 
     dp.include_router(basic.router)
+    dp.include_router(admin.router)
 
     scheduler = setup_scheduler(bot)
     scheduler.start()
