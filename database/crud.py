@@ -213,3 +213,68 @@ async def create_ai_quest_for_user(
     )
 
     return quest
+
+async def get_active_quest_by_type(
+    session: AsyncSession,
+    user_id: int,
+    quest_type: str
+) -> Optional[Quest]:
+    """
+    Получает активный квест определенного типа (daily/weekly).
+    Возвращает None если активного квеста нет.
+    """
+    result = await session.execute(
+        select(Quest)
+        .where(Quest.user_id == user_id)
+        .where(Quest.quest_type == quest_type)
+        .where(Quest.status == "pending")
+        .order_by(Quest.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def check_can_generate_quest(
+    session: AsyncSession,
+    user_id: int,
+    quest_type: str
+) -> tuple[bool, str]:
+    """
+    Проверяет может ли пользователь получить новый квест.
+
+    Returns:
+        tuple[bool, str]: (можно ли создать квест, сообщение для пользователя)
+    """
+    active_quest = await get_active_quest_by_type(session, user_id, quest_type)
+
+    if not active_quest:
+        return True, ""
+
+    # Рассчитываем когда квест сгорит
+    from datetime import timedelta
+
+    if quest_type == "daily":
+        expires_at = active_quest.created_at + timedelta(hours=24)
+        quest_name = "ежедневный квест"
+    else:
+        expires_at = active_quest.created_at + timedelta(days=7)
+        quest_name = "недельный квест"
+
+    # Форматируем время
+    time_left = expires_at - datetime.utcnow()
+
+    if time_left.total_seconds() <= 0:
+        # Квест истек - можно создавать новый
+        return True, ""
+
+    # Квест еще активен
+    hours_left = int(time_left.total_seconds() // 3600)
+    minutes_left = int((time_left.total_seconds() % 3600) // 60)
+
+    message = (
+        f"⏳ У тебя уже есть активный {quest_name}!\n\n"
+        f"Новый квест будет доступен через: {hours_left}ч {minutes_left}мин\n\n"
+        f"Используй /my_quests чтобы увидеть текущие квесты."
+    )
+
+    return False, message

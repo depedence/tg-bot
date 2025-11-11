@@ -28,6 +28,16 @@ async def send_daily_quests(bot: Bot):
 
         for user in users:
             try:
+                # ПРОВЕРКА перед генерацией
+                from database.crud import check_can_generate_quest
+                can_generate, _ = await check_can_generate_quest(
+                    session, user.id, "daily"
+                )
+
+                if not can_generate:
+                    logger.info(f"⏭️ Пропускаем {user.telegram_id} - квест еще активен")
+                    continue
+
                 # Генерируем квест через AI
                 quest = await create_ai_quest_for_user(
                     session=session,
@@ -85,6 +95,16 @@ async def send_weekly_quests(bot: Bot):
 
         for user in users:
             try:
+                # ПРОВЕРКА перед генерацией
+                from database.crud import check_can_generate_quest
+                can_generate, _ = await check_can_generate_quest(
+                    session, user.id, "daily"
+                )
+
+                if not can_generate:
+                    logger.info(f"⏭️ Пропускаем {user.telegram_id} - квест еще активен")
+                    continue
+
                 # Генерируем квест через AI
                 quest = await create_ai_quest_for_user(
                     session=session,

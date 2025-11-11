@@ -5,19 +5,17 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 from database.database import async_session_maker
-from database.crud import get_or_create_user, create_ai_quest_for_user
+from database.crud import (get_or_create_user, create_ai_quest_for_user,check_can_generate_quest, get_user_quests)
+from datetime import datetime, timedelta
 import json
 
 router = Router()
-
 
 @router.message(Command("generate_daily"))
 async def cmd_generate_daily(message: Message):
     """
     Генерирует дейли квест вручную (для тестирования).
     """
-    await message.answer("⏳ Генерирую ежедневный квест...")
-
     async with async_session_maker() as session:
         user = await get_or_create_user(
             session=session,
@@ -25,6 +23,17 @@ async def cmd_generate_daily(message: Message):
             username=message.from_user.username,
             first_name=message.from_user.first_name
         )
+
+        # ПРОВЕРКА: может ли пользователь получить новый квест
+        can_generate, error_message = await check_can_generate_quest(
+            session, user.id, "daily"
+        )
+
+        if not can_generate:
+            await message.answer(error_message)
+            return
+
+        await message.answer("⏳ Генерирую ежедневный квест...")
 
         try:
             # Генерируем квест
@@ -52,7 +61,7 @@ async def cmd_generate_daily(message: Message):
                 f"📜 {quest.description}\n\n"
                 f"📋 **Задания:**\n{tasks_text}\n\n"
                 f"💪 Сложность: {quest.difficulty.upper()}\n\n"
-                f"ID квеста: {quest.id}"
+                f"⏰ Квест сгорит через 24 часа"
             )
 
             await message.answer(response, parse_mode="Markdown")
@@ -66,8 +75,6 @@ async def cmd_generate_weekly(message: Message):
     """
     Генерирует недельный квест вручную (для тестирования).
     """
-    await message.answer("⏳ Генерирую недельный квест...")
-
     async with async_session_maker() as session:
         user = await get_or_create_user(
             session=session,
@@ -75,6 +82,17 @@ async def cmd_generate_weekly(message: Message):
             username=message.from_user.username,
             first_name=message.from_user.first_name
         )
+
+        # ПРОВЕРКА: может ли пользователь получить новый квест
+        can_generate, error_message = await check_can_generate_quest(
+            session, user.id, "weekly"
+        )
+
+        if not can_generate:
+            await message.answer(error_message)
+            return
+
+        await message.answer("⏳ Генерирую недельный квест...")
 
         try:
             # Генерируем квест
@@ -101,8 +119,7 @@ async def cmd_generate_weekly(message: Message):
                 f"📜 {quest.description}\n\n"
                 f"📋 **Задания на неделю:**\n{tasks_text}\n\n"
                 f"💪 Сложность: {quest.difficulty.upper()}\n\n"
-                f"У тебя 7 дней чтобы доказать свою силу!\n"
-                f"ID квеста: {quest.id}"
+                f"⏰ Квест сгорит через 7 дней"
             )
 
             await message.answer(response, parse_mode="Markdown")
@@ -116,8 +133,6 @@ async def cmd_my_quests(message: Message):
     """
     Показывает активные квесты пользователя.
     """
-    from database.crud import get_user_quests
-
     async with async_session_maker() as session:
         user = await get_or_create_user(
             session=session,
@@ -150,14 +165,24 @@ async def cmd_my_quests(message: Message):
             tasks = json.loads(quest.tasks)
             tasks_text = "\n".join([f"    • {task}" for task in tasks])
 
-            quest_type_text = "⚔️ ЕЖЕДНЕВНЫЙ" if quest.quest_type == "daily" else "🏆 НЕДЕЛЬНЫЙ"
+            # Рассчитываем время до сгорания
+            if quest.quest_type == "daily":
+                expires_at = quest.created_at + timedelta(hours=24)
+                quest_type_text = "⚔️ ЕЖЕДНЕВНЫЙ"
+            else:
+                expires_at = quest.created_at + timedelta(days=7)
+                quest_type_text = "🏆 НЕДЕЛЬНЫЙ"
+
+            time_left = expires_at - datetime.utcnow()
+            hours_left = int(time_left.total_seconds() // 3600)
+            minutes_left = int((time_left.total_seconds() % 3600) // 60)
 
             response += (
                 f"{quest_type_text} {emoji}\n"
                 f"**{quest.title}**\n"
                 f"{quest.description}\n\n"
                 f"**Задания:**\n{tasks_text}\n\n"
-                f"ID: {quest.id}\n"
+                f"⏰ Сгорит через: {hours_left}ч {minutes_left}мин\n"
                 f"━━━━━━━━━━━━━━━\n\n"
             )
 
