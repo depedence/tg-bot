@@ -1,11 +1,12 @@
 """
 Обработчики базовых команд бота.
 """
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 from database.database import async_session_maker
 from database.crud import get_or_create_user, save_message
+from bot.keyboards.reply import get_main_menu
 
 router = Router()
 
@@ -41,7 +42,7 @@ async def cmd_start(message: Message):
             "Используй /help чтобы узнать команды."
         )
 
-        await message.answer(response_text)
+        await message.answer(response_text, reply_markup=get_main_menu())
 
         await save_message(
             session=session,
@@ -51,6 +52,7 @@ async def cmd_start(message: Message):
         )
 
 
+@router.message(F.text == "❓ Помощь")
 @router.message(Command("help"))
 async def cmd_help(message: Message):
     """

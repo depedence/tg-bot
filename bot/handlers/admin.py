@@ -1,7 +1,7 @@
 """
 Административные команды для тестирования.
 """
-from aiogram import Router
+from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message
 from database.database import async_session_maker
@@ -11,10 +11,12 @@ import json
 
 router = Router()
 
+
+@router.message(F.text == "⚔️ Дейли квест")
 @router.message(Command("generate_daily"))
 async def cmd_generate_daily(message: Message):
     """
-    Генерирует дейли квест вручную (для тестирования).
+    Генерирует дейли квест вручную.
     """
     async with async_session_maker() as session:
         user = await get_or_create_user(
@@ -69,10 +71,11 @@ async def cmd_generate_daily(message: Message):
             await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
 
 
+@router.message(F.text == "🏆 Недельный квест")
 @router.message(Command("generate_weekly"))
 async def cmd_generate_weekly(message: Message):
     """
-    Генерирует недельный квест вручную (для тестирования).
+    Генерирует недельный квест вручную.
     """
     async with async_session_maker() as session:
         user = await get_or_create_user(
@@ -126,6 +129,7 @@ async def cmd_generate_weekly(message: Message):
             await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
 
 
+@router.message(F.text == "📋 Мои квесты")
 @router.message(Command("my_quests"))
 async def cmd_my_quests(message: Message):
     """
@@ -144,9 +148,7 @@ async def cmd_my_quests(message: Message):
         if not pending_quests:
             await message.answer(
                 "📭 У тебя пока нет активных квестов.\n\n"
-                "Используй команды:\n"
-                "/generate_daily — Дейли квест\n"
-                "/generate_weekly — Недельный квест"
+                "Создай квест используя кнопки меню:"
             )
             return
 
@@ -189,3 +191,16 @@ async def cmd_my_quests(message: Message):
                 response += "\n" + "—" * 25 + "\n\n"
 
         await message.answer(response)
+
+
+@router.message(F.text == "📊 Статистика")
+@router.message(Command("stats"))
+async def cmd_stats(message: Message):
+    """
+    Показывает статистику пользователя.
+    """
+    await message.answer(
+        "📊 СТАТИСТИКА\n\n"
+        "🚧 Эта функция в разработке.\n"
+        "Скоро здесь появится твой прогресс!"
+    )
