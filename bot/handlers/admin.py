@@ -5,7 +5,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 from database.database import async_session_maker
-from database.crud import (get_or_create_user, create_ai_quest_for_user,check_can_generate_quest, get_user_quests)
+from database.crud import (get_or_create_user, create_ai_quest_for_user, check_can_generate_quest, get_user_quests)
 from datetime import datetime, timedelta
 import json
 
@@ -24,7 +24,6 @@ async def cmd_generate_daily(message: Message):
             first_name=message.from_user.first_name
         )
 
-        # ПРОВЕРКА: может ли пользователь получить новый квест
         can_generate, error_message = await check_can_generate_quest(
             session, user.id, "daily"
         )
@@ -33,21 +32,17 @@ async def cmd_generate_daily(message: Message):
             await message.answer(error_message)
             return
 
-        await message.answer("⏳ Генерирую ежедневный квест...")
+        loading_msg = await message.answer("⏳ Генерирую ежедневный квест...")
 
         try:
-            # Генерируем квест
             quest = await create_ai_quest_for_user(
                 session=session,
                 user=user,
                 quest_type="daily"
             )
 
-            # Парсим задания
             tasks = json.loads(quest.tasks)
-            tasks_text = "\n".join([f"  • {task}" for task in tasks])
 
-            # Формируем сообщение
             difficulty_emoji = {
                 "easy": "🟢",
                 "medium": "🟡",
@@ -55,19 +50,23 @@ async def cmd_generate_daily(message: Message):
             }
             emoji = difficulty_emoji.get(quest.difficulty, "⚪")
 
-            response = (
-                f"⚔️ **НОВЫЙ ЕЖЕДНЕВНЫЙ КВЕСТ** ⚔️\n\n"
-                f"{emoji} **{quest.title}**\n\n"
-                f"📜 {quest.description}\n\n"
-                f"📋 **Задания:**\n{tasks_text}\n\n"
-                f"💪 Сложность: {quest.difficulty.upper()}\n\n"
-                f"⏰ Квест сгорит через 24 часа"
-            )
+            response = f"⚔️ НОВЫЙ ЕЖЕДНЕВНЫЙ КВЕСТ\n\n"
+            response += f"{emoji} {quest.title}\n\n"
+            response += f"{quest.description}\n\n"
+            response += "📋 ЗАДАНИЯ:\n"
 
-            await message.answer(response, parse_mode="Markdown")
+            for i, task in enumerate(tasks, 1):
+                response += f"{i}. {task}\n"
+
+            response += f"\n💪 Сложность: {quest.difficulty.upper()}"
+            response += f"\n⏰ Время: 24 часа"
+
+            await loading_msg.delete()
+            await message.answer(response)
 
         except Exception as e:
-            await message.answer(f"❌ Ошибка при генерации квеста: {e}")
+            await loading_msg.delete()
+            await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
 
 
 @router.message(Command("generate_weekly"))
@@ -83,7 +82,6 @@ async def cmd_generate_weekly(message: Message):
             first_name=message.from_user.first_name
         )
 
-        # ПРОВЕРКА: может ли пользователь получить новый квест
         can_generate, error_message = await check_can_generate_quest(
             session, user.id, "weekly"
         )
@@ -92,40 +90,40 @@ async def cmd_generate_weekly(message: Message):
             await message.answer(error_message)
             return
 
-        await message.answer("⏳ Генерирую недельный квест...")
+        loading_msg = await message.answer("⏳ Генерирую недельный квест...")
 
         try:
-            # Генерируем квест
             quest = await create_ai_quest_for_user(
                 session=session,
                 user=user,
                 quest_type="weekly"
             )
 
-            # Парсим задания
             tasks = json.loads(quest.tasks)
-            tasks_text = "\n".join([f"  {i+1}. {task}" for i, task in enumerate(tasks)])
 
-            # Формируем сообщение
             difficulty_emoji = {
                 "medium": "🟡",
                 "hard": "🔴"
             }
             emoji = difficulty_emoji.get(quest.difficulty, "🔴")
 
-            response = (
-                f"🏆 **НОВЫЙ НЕДЕЛЬНЫЙ КВЕСТ** 🏆\n\n"
-                f"{emoji} **{quest.title}**\n\n"
-                f"📜 {quest.description}\n\n"
-                f"📋 **Задания на неделю:**\n{tasks_text}\n\n"
-                f"💪 Сложность: {quest.difficulty.upper()}\n\n"
-                f"⏰ Квест сгорит через 7 дней"
-            )
+            response = f"🏆 НОВЫЙ НЕДЕЛЬНЫЙ КВЕСТ\n\n"
+            response += f"{emoji} {quest.title}\n\n"
+            response += f"{quest.description}\n\n"
+            response += "📋 ЗАДАНИЯ НА НЕДЕЛЮ:\n"
 
-            await message.answer(response, parse_mode="Markdown")
+            for i, task in enumerate(tasks, 1):
+                response += f"{i}. {task}\n"
+
+            response += f"\n💪 Сложность: {quest.difficulty.upper()}"
+            response += f"\n⏰ Время: 7 дней"
+
+            await loading_msg.delete()
+            await message.answer(response)
 
         except Exception as e:
-            await message.answer(f"❌ Ошибка при генерации квеста: {e}")
+            await loading_msg.delete()
+            await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
 
 
 @router.message(Command("my_quests"))
@@ -141,19 +139,20 @@ async def cmd_my_quests(message: Message):
             first_name=message.from_user.first_name
         )
 
-        # Получаем активные квесты
         pending_quests = await get_user_quests(session, user.id, status="pending")
 
         if not pending_quests:
             await message.answer(
                 "📭 У тебя пока нет активных квестов.\n\n"
-                "Используй /generate_daily или /generate_weekly для создания квеста."
+                "Используй команды:\n"
+                "/generate_daily — Дейли квест\n"
+                "/generate_weekly — Недельный квест"
             )
             return
 
-        response = "📋 **Твои активные квесты:**\n\n"
+        response = "📋 ТВОИ АКТИВНЫЕ КВЕСТЫ:\n\n"
 
-        for quest in pending_quests:
+        for idx, quest in enumerate(pending_quests, 1):
             difficulty_emoji = {
                 "easy": "🟢",
                 "medium": "🟡",
@@ -161,29 +160,32 @@ async def cmd_my_quests(message: Message):
             }
             emoji = difficulty_emoji.get(quest.difficulty, "⚪")
 
-            # Парсим задания
             tasks = json.loads(quest.tasks)
-            tasks_text = "\n".join([f"    • {task}" for task in tasks])
 
-            # Рассчитываем время до сгорания
             if quest.quest_type == "daily":
                 expires_at = quest.created_at + timedelta(hours=24)
-                quest_type_text = "⚔️ ЕЖЕДНЕВНЫЙ"
+                quest_icon = "⚔️"
+                quest_type_name = "ЕЖЕДНЕВНЫЙ"
             else:
                 expires_at = quest.created_at + timedelta(days=7)
-                quest_type_text = "🏆 НЕДЕЛЬНЫЙ"
+                quest_icon = "🏆"
+                quest_type_name = "НЕДЕЛЬНЫЙ"
 
             time_left = expires_at - datetime.utcnow()
             hours_left = int(time_left.total_seconds() // 3600)
             minutes_left = int((time_left.total_seconds() % 3600) // 60)
 
-            response += (
-                f"{quest_type_text} {emoji}\n"
-                f"**{quest.title}**\n"
-                f"{quest.description}\n\n"
-                f"**Задания:**\n{tasks_text}\n\n"
-                f"⏰ Сгорит через: {hours_left}ч {minutes_left}мин\n"
-                f"━━━━━━━━━━━━━━━\n\n"
-            )
+            response += f"{quest_icon} {quest_type_name} {emoji}\n"
+            response += f"{quest.title}\n\n"
+            response += f"{quest.description}\n\n"
+            response += "Задания:\n"
 
-        await message.answer(response, parse_mode="Markdown")
+            for i, task in enumerate(tasks, 1):
+                response += f"{i}. {task}\n"
+
+            response += f"\n⏰ Сгорит через: {hours_left}ч {minutes_left}мин\n"
+
+            if idx < len(pending_quests):
+                response += "\n" + "—" * 25 + "\n\n"
+
+        await message.answer(response)
