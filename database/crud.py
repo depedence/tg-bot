@@ -74,6 +74,7 @@ async def create_quest(
         title=title,
         description=description,
         tasks=json.dumps(tasks, ensure_ascii=False),  # Сохраняем как JSON строку
+        completed_tasks='[]',
         difficulty=difficulty,
         quest_type=quest_type,
         status="pending"
@@ -278,3 +279,49 @@ async def check_can_generate_quest(
     )
 
     return False, message
+
+async def toggle_task_completion(
+    session: AsyncSession,
+    quest_id: int,
+    task_index: int
+) -> Quest:
+    """
+    Переключает статус выполнения задания (выполнено/не выполнено).
+
+    Args:
+        quest_id: ID квеста
+        task_index: Индекс задания (начиная с 0)
+
+    Returns:
+        Обновленный квест
+    """
+    result = await session.execute(
+        select(Quest).where(Quest.id == quest_id)
+    )
+    quest = result.scalar_one()
+
+    # Парсим список выполненных заданий
+    completed = json.loads(quest.completed_tasks)
+
+    # Переключаем статус
+    if task_index in completed:
+        completed.remove(task_index)  # Убираем из выполненных
+    else:
+        completed.append(task_index)  # Добавляем в выполненные
+
+    # Сохраняем обратно
+    quest.completed_tasks = json.dumps(completed)
+
+    # Проверяем все ли задания выполнены
+    tasks = json.loads(quest.tasks)
+    if len(completed) == len(tasks):
+        quest.status = "completed"
+        quest.completed_at = datetime.utcnow()
+    else:
+        quest.status = "pending"
+        quest.completed_at = None
+
+    await session.commit()
+    await session.refresh(quest)
+
+    return quest

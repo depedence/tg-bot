@@ -31,6 +31,7 @@ class Quest(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)  # Вступительное слово от Системы
     tasks: Mapped[str] = mapped_column(Text, nullable=False)  # JSON список заданий
+    completed_tasks: Mapped[str] = mapped_column(Text, default=[""]) # JSON список выполненных заданий
     difficulty: Mapped[str] = mapped_column(String(50), nullable=False)  # easy/medium/hard
     quest_type: Mapped[str] = mapped_column(String(50), nullable=False)  # daily/weekly
     status: Mapped[str] = mapped_column(String(50), default="pending")  # pending/completed/failed
