@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional
 from services.ai_service import generate_daily_quest, generate_weekly_quest
 from services.level_service import get_level_from_experience
+from datetime import timedelta
 
 
 # ========== USERS ==========
@@ -211,36 +212,49 @@ async def check_can_generate_quest(
     quest_type: str
 ) -> tuple[bool, str]:
 
-    active_quest = await get_active_quest_by_type(session, user_id, quest_type)
-
-    if not active_quest:
-        return True, ""
-
-    # Рассчитываем когда квест сгорит
-    from datetime import timedelta
-
+    # Определяем период проверки
     if quest_type == "daily":
-        expires_at = active_quest.created_at + timedelta(hours=24)
+        time_period = timedelta(hours=24)
         quest_name = "ежедневный квест"
     else:
-        expires_at = active_quest.created_at + timedelta(days=7)
+        time_period = timedelta(days=7)
         quest_name = "недельный квест"
 
-    # Форматируем время
-    time_left = expires_at - datetime.utcnow()
+    # Ищем ЛЮБЫЕ квесты этого типа за период (и активные, и выполненные)
+    cutoff_time = datetime.utcnow() - time_period
 
-    if time_left.total_seconds() <= 0:
-        # Квест истек - можно создавать новый
+    result = await session.execute(
+        select(Quest)
+        .where(Quest.user_id == user_id)
+        .where(Quest.quest_type == quest_type)
+        .where(Quest.created_at >= cutoff_time)
+        .order_by(Quest.created_at.desc())
+        .limit(1)
+    )
+    last_quest = result.scalar_one_or_none()
+
+    if not last_quest:
+        # Квестов за этот период нет - можно создавать
         return True, ""
 
-    # Квест еще активен
+    # Рассчитываем когда можно будет взять новый квест
+    next_available = last_quest.created_at + time_period
+    time_left = next_available - datetime.utcnow()
+
+    if time_left.total_seconds() <= 0:
+        # Время прошло - можно создавать
+        return True, ""
+
+    # Квест еще нельзя взять
     hours_left = int(time_left.total_seconds() // 3600)
     minutes_left = int((time_left.total_seconds() % 3600) // 60)
 
     message = (
-        f"⏳ У тебя уже есть активный {quest_name}!\n\n"
-        f"Новый квест будет доступен через: {hours_left}ч {minutes_left}мин\n\n"
-        f"Используй /my_quests чтобы увидеть текущие квесты."
+        f"⏳ Ты уже брал {quest_name} недавно!\n\n"
+        f"Новый квест будет доступен через:\n"
+        f"🕐 {hours_left}ч {minutes_left}мин\n\n"
+        f"⚔️ Один {quest_name} в "
+        f"{'сутки' if quest_type == 'daily' else '7 дней'}!"
     )
 
     return False, message

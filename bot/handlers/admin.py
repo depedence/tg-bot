@@ -8,6 +8,8 @@ from database.database import async_session_maker
 from database.crud import (get_or_create_user, create_ai_quest_for_user, check_can_generate_quest, get_user_quests, toggle_task_completion)
 from bot.keyboards.inline import get_quest_keyboard
 from datetime import datetime, timedelta
+from sqlalchemy import select
+from database.models import Quest
 import json
 
 router = Router()
@@ -280,6 +282,22 @@ async def callback_toggle_task(callback: CallbackQuery):
         task_index = int(task_index)
 
         async with async_session_maker() as session:
+            # Получаем квест ДО изменения
+            result = await session.execute(
+                select(Quest).where(Quest.id == quest_id)
+            )
+            quest_before = result.scalar_one()
+            completed_before = json.loads(quest_before.completed_tasks)
+
+            # Проверяем: пытается ли пользователь снять отметку с выполненного задания
+            if task_index in completed_before:
+                await callback.answer(
+                    "⚠️ Задание уже выполнено!\n"
+                    "Если ты нажал случайно - выполни задание по-настоящему.",
+                    show_alert=True
+                )
+                return
+
             # Получаем пользователя
             user = await get_or_create_user(
                 session=session,
@@ -294,10 +312,10 @@ async def callback_toggle_task(callback: CallbackQuery):
             tasks = json.loads(quest.tasks)
             completed_tasks_list = json.loads(quest.completed_tasks)
 
-            # НАЧИСЛЕНИЕ ОПЫТА
+            # НАЧИСЛЕНИЕ ОПЫТА (только при отметке как выполненное)
             exp_message = ""
-            if task_index in completed_tasks_list:  # Если задание было отмечено как выполненное
-                from services.level_service import calculate_quest_exp, get_level_from_experience
+            if task_index in completed_tasks_list:  # Задание отмечено как выполненное
+                from services.level_service import get_level_from_experience
                 from database.crud import add_experience
 
                 # Считаем опыт за это задание
@@ -384,7 +402,7 @@ async def callback_toggle_task(callback: CallbackQuery):
                 reply_markup=get_quest_keyboard(quest.id, tasks, completed_tasks_list)
             )
 
-            # Отправляем уведомление об опыте отдельным сообщением если есть
+            # Отправляем уведомление об опыте отдельным сообщением
             if exp_message:
                 await callback.message.answer(exp_message)
                 await callback.answer("✅ Отлично!")
