@@ -8,6 +8,7 @@ from database.models import User, Quest, ChatHistory
 from datetime import datetime
 from typing import Optional
 from services.ai_service import generate_daily_quest, generate_weekly_quest
+from services.level_service import get_level_from_experience
 
 
 # ========== USERS ==========
@@ -18,9 +19,7 @@ async def get_or_create_user(
     username: Optional[str],
     first_name: str
 ) -> User:
-    """
-    Получает пользователя из БД или создает нового если не существует.
-    """
+
     # Ищем пользователя
     result = await session.execute(
         select(User).where(User.telegram_id == telegram_id)
@@ -46,9 +45,7 @@ async def get_user_by_telegram_id(
     session: AsyncSession,
     telegram_id: int
 ) -> Optional[User]:
-    """
-    Получает пользователя по telegram_id.
-    """
+
     result = await session.execute(
         select(User).where(User.telegram_id == telegram_id)
     )
@@ -66,9 +63,7 @@ async def create_quest(
     difficulty: str,
     quest_type: str
 ) -> Quest:
-    """
-    Создает новый квест для пользователя.
-    """
+
     quest = Quest(
         user_id=user_id,
         title=title,
@@ -90,10 +85,7 @@ async def get_user_quests(
     user_id: int,
     status: Optional[str] = None
 ) -> list[Quest]:
-    """
-    Получает квесты пользователя.
-    Можно фильтровать по статусу (pending/completed/failed).
-    """
+
     query = select(Quest).where(Quest.user_id == user_id)
 
     if status:
@@ -107,9 +99,7 @@ async def complete_quest(
     session: AsyncSession,
     quest_id: int
 ) -> Quest:
-    """
-    Отмечает квест как выполненный.
-    """
+
     result = await session.execute(
         select(Quest).where(Quest.id == quest_id)
     )
@@ -127,9 +117,7 @@ async def fail_quest(
     session: AsyncSession,
     quest_id: int
 ) -> Quest:
-    """
-    Отмечает квест как проваленный.
-    """
+
     result = await session.execute(
         select(Quest).where(Quest.id == quest_id)
     )
@@ -150,9 +138,7 @@ async def save_message(
     message_text: str,
     is_from_user: bool
 ):
-    """
-    Сохраняет сообщение в историю чата.
-    """
+
     chat_entry = ChatHistory(
         user_id=user_id,
         message_text=message_text,
@@ -167,10 +153,7 @@ async def get_user_chat_history(
     user_id: int,
     limit: int = 50
 ) -> list[ChatHistory]:
-    """
-    Получает историю чата пользователя.
-    По умолчанию последние 50 сообщений.
-    """
+
     result = await session.execute(
         select(ChatHistory)
         .where(ChatHistory.user_id == user_id)
@@ -185,17 +168,7 @@ async def create_ai_quest_for_user(
     user: User,
     quest_type: str  # "daily" или "weekly"
 ) -> Quest:
-    """
-    Генерирует квест через AI и сохраняет в БД.
 
-    Args:
-        session: Сессия БД
-        user: Пользователь для которого генерируем квест
-        quest_type: Тип квеста ("daily" или "weekly")
-
-    Returns:
-        Созданный квест
-    """
     # Генерируем квест через AI
     if quest_type == "daily":
         quest_data = generate_daily_quest(user_name=user.first_name)
@@ -220,10 +193,7 @@ async def get_active_quest_by_type(
     user_id: int,
     quest_type: str
 ) -> Optional[Quest]:
-    """
-    Получает активный квест определенного типа (daily/weekly).
-    Возвращает None если активного квеста нет.
-    """
+
     result = await session.execute(
         select(Quest)
         .where(Quest.user_id == user_id)
@@ -240,12 +210,7 @@ async def check_can_generate_quest(
     user_id: int,
     quest_type: str
 ) -> tuple[bool, str]:
-    """
-    Проверяет может ли пользователь получить новый квест.
 
-    Returns:
-        tuple[bool, str]: (можно ли создать квест, сообщение для пользователя)
-    """
     active_quest = await get_active_quest_by_type(session, user_id, quest_type)
 
     if not active_quest:
@@ -285,16 +250,7 @@ async def toggle_task_completion(
     quest_id: int,
     task_index: int
 ) -> Quest:
-    """
-    Переключает статус выполнения задания (выполнено/не выполнено).
 
-    Args:
-        quest_id: ID квеста
-        task_index: Индекс задания (начиная с 0)
-
-    Returns:
-        Обновленный квест
-    """
     result = await session.execute(
         select(Quest).where(Quest.id == quest_id)
     )
@@ -325,3 +281,28 @@ async def toggle_task_completion(
     await session.refresh(quest)
 
     return quest
+
+async def add_experience(
+    session: AsyncSession,
+    user_id: int,
+    exp_amount: int
+) -> tuple[User, bool, int]:
+
+    result = await session.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one()
+
+    old_level = user.level
+    user.experience += exp_amount
+
+    # Вычисляем новый уровень
+    new_level, _, _ = get_level_from_experience(user.experience)
+
+    level_up = new_level > old_level
+    user.level = new_level
+
+    await session.commit()
+    await session.refresh(user)
+
+    return user, level_up, new_level

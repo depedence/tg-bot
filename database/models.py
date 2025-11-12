@@ -13,6 +13,8 @@ class User(Base):
     telegram_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     first_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    level: Mapped[int] = mapped_column(Integer, default=1)
+    experience: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # Связи

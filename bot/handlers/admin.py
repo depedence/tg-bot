@@ -222,31 +222,125 @@ async def cmd_stats(message: Message):
     """
     Показывает статистику пользователя.
     """
-    await message.answer(
-        "📊 СТАТИСТИКА\n\n"
-        "🚧 Эта функция в разработке.\n"
-        "Скоро здесь появится твой прогресс!"
-    )
+    from services.level_service import get_level_from_experience
+
+    async with async_session_maker() as session:
+        user = await get_or_create_user(
+            session=session,
+            telegram_id=message.from_user.id,
+            username=message.from_user.username,
+            first_name=message.from_user.first_name
+        )
+
+        # Получаем все квесты
+        all_quests = await get_user_quests(session, user.id)
+        completed = [q for q in all_quests if q.status == "completed"]
+        failed = [q for q in all_quests if q.status == "failed"]
+        pending = [q for q in all_quests if q.status == "pending"]
+
+        # Информация об уровне
+        current_level, current_exp, exp_needed = get_level_from_experience(user.experience)
+
+        # Формируем никнейм
+        if user.username:
+            nickname = f"@{user.username}"
+        else:
+            nickname = user.first_name
+
+        response = (
+            f"👤 {nickname}\n\n"
+            f"⭐ Уровень: {current_level}\n"
+            f"⚡ Опыт: {current_exp}/{exp_needed}\n\n"
+            f"📊 СТАТИСТИКА КВЕСТОВ:\n\n"
+            f"✅ Выполнено: {len(completed)}\n"
+            f"❌ Провалено: {len(failed)}\n"
+            f"⏳ Активных: {len(pending)}\n"
+            f"📈 Всего квестов: {len(all_quests)}\n"
+        )
+
+        if len(all_quests) > 0:
+            success_rate = (len(completed) / len(all_quests)) * 100
+            response += f"🎯 Процент успеха: {success_rate:.1f}%\n\n"
+
+        response += (
+            f"💪 Выполняйте больше квестов,\n"
+            f"чтобы поднять свой уровень!"
+        )
+
+        await message.answer(response)
 
 @router.callback_query(F.data.startswith("toggle_task:"))
 async def callback_toggle_task(callback: CallbackQuery):
     """
     Обработчик нажатия на кнопку отметки задания.
-    Формат callback_data: "toggle_task:quest_id:task_index"
     """
     try:
-        # Парсим данные из callback
         _, quest_id, task_index = callback.data.split(":")
         quest_id = int(quest_id)
         task_index = int(task_index)
 
         async with async_session_maker() as session:
+            # Получаем пользователя
+            user = await get_or_create_user(
+                session=session,
+                telegram_id=callback.from_user.id,
+                username=callback.from_user.username,
+                first_name=callback.from_user.first_name
+            )
+
             # Переключаем статус задания
             quest = await toggle_task_completion(session, quest_id, task_index)
 
             tasks = json.loads(quest.tasks)
-            completed_tasks = json.loads(quest.completed_tasks)
+            completed_tasks_list = json.loads(quest.completed_tasks)
 
+            # НАЧИСЛЕНИЕ ОПЫТА
+            exp_message = ""
+            if task_index in completed_tasks_list:  # Если задание было отмечено как выполненное
+                from services.level_service import calculate_quest_exp, get_level_from_experience
+                from database.crud import add_experience
+
+                # Считаем опыт за это задание
+                if quest.quest_type == "daily":
+                    task_exp = 1
+                else:
+                    task_exp = 3
+
+                # Проверяем все ли задания выполнены
+                all_completed = len(completed_tasks_list) == len(tasks)
+                bonus_exp = 0
+
+                if all_completed:
+                    if quest.quest_type == "daily":
+                        bonus_exp = 1
+                    else:
+                        bonus_exp = 3
+
+                total_exp = task_exp + bonus_exp
+
+                # Начисляем опыт
+                user, level_up, new_level = await add_experience(session, user.id, total_exp)
+
+                # Формируем сообщение о получении опыта
+                if all_completed:
+                    exp_message = f"\n\n🎉 КВЕСТ ПОЛНОСТЬЮ ВЫПОЛНЕН!\n"
+                    exp_message += f"💫 +{task_exp} опыта за задание\n"
+                    exp_message += f"⭐ +{bonus_exp} бонусный опыт за завершение квеста!\n"
+                else:
+                    exp_message += f"\n\n✅ Задание выполнено!\n"
+                    exp_message += f"💫 +{task_exp} опыта\n"
+
+                # Информация об уровне
+                current_level, current_exp, exp_needed = get_level_from_experience(user.experience)
+                exp_message += f"\n📊 Уровень: {current_level}\n"
+                exp_message += f"⚡ Опыт: {current_exp}/{exp_needed}"
+
+                # Если был levelup
+                if level_up:
+                    exp_message += f"\n\n🎊 ПОЗДРАВЛЯЕМ! 🎊\n"
+                    exp_message += f"🆙 Вы достигли {new_level} уровня!"
+
+            # Формируем текст квеста
             difficulty_emoji = {
                 "easy": "🟢",
                 "medium": "🟡",
@@ -267,34 +361,33 @@ async def callback_toggle_task(callback: CallbackQuery):
             hours_left = int(time_left.total_seconds() // 3600)
             minutes_left = int((time_left.total_seconds() % 3600) // 60)
 
-            # Обновляем текст сообщения
             response = f"{quest_icon} {quest_type_name} {emoji}\n"
             response += f"{quest.title}\n\n"
             response += f"{quest.description}\n\n"
             response += "Задания:\n"
 
             for i, task in enumerate(tasks):
-                status = "✅" if i in completed_tasks else "⬜"
+                status = "✅" if i in completed_tasks_list else "⬜"
                 response += f"{i+1}. {status} {task}\n"
 
-            progress = f"{len(completed_tasks)}/{len(tasks)}"
+            progress = f"{len(completed_tasks_list)}/{len(tasks)}"
             response += f"\n📊 Прогресс: {progress}"
 
-            # Если все задания выполнены - поздравляем
             if quest.status == "completed":
-                response += f"\n\n🎉 КВЕСТ ВЫПОЛНЕН! 🎉\n💪 Отличная работа!"
+                response += f"\n\n🏆 КВЕСТ ЗАВЕРШЕН!"
             else:
                 response += f"\n⏰ Сгорит через: {hours_left}ч {minutes_left}мин"
 
-            # Обновляем сообщение с новыми кнопками
+            # Обновляем сообщение
             await callback.message.edit_text(
                 response,
-                reply_markup=get_quest_keyboard(quest.id, tasks, completed_tasks)
+                reply_markup=get_quest_keyboard(quest.id, tasks, completed_tasks_list)
             )
 
-            # Уведомляем пользователя
-            if task_index in completed_tasks:
-                await callback.answer("✅ Задание отмечено как выполненное!")
+            # Отправляем уведомление об опыте отдельным сообщением если есть
+            if exp_message:
+                await callback.message.answer(exp_message)
+                await callback.answer("✅ Отлично!")
             else:
                 await callback.answer("⬜ Отметка снята")
 
