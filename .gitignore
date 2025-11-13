@@ -1,10 +1,34 @@
-venv
-.env.example
-.env
+# Virtual environment
+venv/
+env/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDEs
 .idea/
 .vscode/
 
+# Database files
 quest_bot.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

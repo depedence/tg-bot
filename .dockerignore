@@ -1,0 +1,36 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Environment files (КРИТИЧНО!)
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Documentation
+README.md
+DEPLOYMENT.md
+
+# Database
+quest_bot.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
