@@ -1,17 +1,14 @@
 """
-Сервис для генерации квестов через Hugging Face AI.
+Сервис для генерации квестов через OpenRouter AI (DeepSeek).
 """
-import requests
+from openai import OpenAI
 from config.settings import API_KEY
 import json
 
-API_URL = "https://router.huggingface.co/hf-inference/models/meta-llama/Llama-3.2-3B-Instruct"
-headers = {"Authorization": f"Bearer {API_KEY}"}
-
-def query_hf(payload):
-    """Отправляет запрос к Hugging Face API"""
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=API_KEY,
+)
 
 def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     """
@@ -61,24 +58,15 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "easy/medium/hard"
 }}"""
 
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 400,
-            "temperature": 1.0,
-            "return_full_text": False
-        }
-    }
+    response = client.chat.completions.create(
+        model="deepseek/deepseek-chat-v3.1:free",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.0,
+        max_tokens=400,
+    )
 
-    result = query_hf(payload)
+    content = response.choices[0].message.content.strip()
 
-    # Результат приходит в формате [{"generated_text": "..."}]
-    if isinstance(result, list) and len(result) > 0:
-        content = result[0].get("generated_text", "").strip()
-    else:
-        raise Exception(f"Unexpected response format: {result}")
-
-    # Убираем markdown если есть
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
     if content.startswith("```"):
@@ -140,21 +128,14 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "medium/hard"
 }}"""
 
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 600,
-            "temperature": 1.0,
-            "return_full_text": False
-        }
-    }
+    response = client.chat.completions.create(
+        model="deepseek/deepseek-chat-v3.1:free",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.0,
+        max_tokens=600,
+    )
 
-    result = query_hf(payload)
-
-    if isinstance(result, list) and len(result) > 0:
-        content = result[0].get("generated_text", "").strip()
-    else:
-        raise Exception(f"Unexpected response format: {result}")
+    content = response.choices[0].message.content.strip()
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
