@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, Text
+from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, Text, BigInteger
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import Optional
 
@@ -10,7 +10,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    telegram_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     first_name: Mapped[str] = mapped_column(String(255), nullable=False)
     level: Mapped[int] = mapped_column(Integer, default=1)
