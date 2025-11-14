@@ -10,7 +10,9 @@ from bot.keyboards.inline import get_quest_keyboard
 from datetime import datetime, timedelta
 from sqlalchemy import select
 from database.models import Quest
+from utils.logger import logger
 import json
+
 
 router = Router()
 
@@ -21,65 +23,83 @@ async def cmd_generate_daily(message: Message):
     """
     Генерирует дейли квест вручную.
     """
-    async with async_session_maker() as session:
-        user = await get_or_create_user(
-            session=session,
-            telegram_id=message.from_user.id,
-            username=message.from_user.username,
-            first_name=message.from_user.first_name
-        )
+    logger.info(
+        'Запрос генерации дейли квеста',
+        user_id=message.from_user.id,
+        username=message.from_user.username
+    )
 
-        can_generate, error_message = await check_can_generate_quest(
-            session, user.id, "daily"
-        )
+    try:
 
-        if not can_generate:
-            await message.answer(error_message)
-            return
-
-        loading_msg = await message.answer("⏳ Генерирую ежедневный квест...")
-
-        try:
-            quest = await create_ai_quest_for_user(
+        async with async_session_maker() as session:
+            user = await get_or_create_user(
                 session=session,
-                user=user,
-                quest_type="daily"
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                first_name=message.from_user.first_name
             )
 
-            tasks = json.loads(quest.tasks)
-
-            difficulty_emoji = {
-                "easy": "🟢",
-                "medium": "🟡",
-                "hard": "🔴"
-            }
-            emoji = difficulty_emoji.get(quest.difficulty, "⚪")
-
-            response = f"⚔️ НОВЫЙ ЕЖЕДНЕВНЫЙ КВЕСТ\n\n"
-            response += f"{emoji} {quest.title}\n\n"
-            response += f"{quest.description}\n\n"
-            response += "📋 ЗАДАНИЯ:\n"
-
-            for i, task in enumerate(tasks, 1):
-                response += f"{i}. {task}\n"
-
-            response += f"\n💪 Сложность: {quest.difficulty.upper()}"
-            response += f"\n⏰ Время: 24 часа"
-
-            await loading_msg.delete()
-
-            # Отправляем с кнопками
-            from bot.keyboards.inline import get_quest_keyboard
-            tasks_list = json.loads(quest.tasks)
-            await message.answer(
-                response,
-                reply_markup=get_quest_keyboard(quest.id, tasks_list, [])
+            can_generate, error_message = await check_can_generate_quest(
+                session, user.id, "daily"
             )
 
-        except Exception as e:
-            await loading_msg.delete()
-            await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
+            if not can_generate:
+                await message.answer(error_message)
+                return
 
+            loading_msg = await message.answer("⏳ Генерирую ежедневный квест...")
+
+            try:
+                quest = await create_ai_quest_for_user(
+                    session=session,
+                    user=user,
+                    quest_type="daily"
+                )
+
+                tasks = json.loads(quest.tasks)
+
+                difficulty_emoji = {
+                    "easy": "🟢",
+                    "medium": "🟡",
+                    "hard": "🔴"
+                }
+                emoji = difficulty_emoji.get(quest.difficulty, "⚪")
+
+                response = f"⚔️ НОВЫЙ ЕЖЕДНЕВНЫЙ КВЕСТ\n\n"
+                response += f"{emoji} {quest.title}\n\n"
+                response += f"{quest.description}\n\n"
+                response += "📋 ЗАДАНИЯ:\n"
+
+                for i, task in enumerate(tasks, 1):
+                    response += f"{i}. {task}\n"
+
+                response += f"\n💪 Сложность: {quest.difficulty.upper()}"
+                response += f"\n⏰ Время: 24 часа"
+
+                await loading_msg.delete()
+
+                # Отправляем с кнопками
+                from bot.keyboards.inline import get_quest_keyboard
+                tasks_list = json.loads(quest.tasks)
+                await message.answer(
+                    response,
+                    reply_markup=get_quest_keyboard(quest.id, tasks_list, [])
+                )
+
+            except Exception as e:
+                logger.exception(
+                    'Ошибка при генерации дейли квеста',
+                    user_id=message.from_user.id
+                )
+                await loading_msg.delete()
+                await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
+
+    except Exception as e:
+        logger.exception(
+            'Критическая ошибка в cmd_generate_daily',
+            user_id=message.from_user.id
+        )
+        await message.answer("❌ Произошла ошибка. Попробуйте позже.")
 
 @router.message(F.text == "🏆 Недельный квест")
 @router.message(Command("generate_weekly"))
@@ -87,64 +107,82 @@ async def cmd_generate_weekly(message: Message):
     """
     Генерирует недельный квест вручную.
     """
-    async with async_session_maker() as session:
-        user = await get_or_create_user(
-            session=session,
-            telegram_id=message.from_user.id,
-            username=message.from_user.username,
-            first_name=message.from_user.first_name
-        )
+    logger.info(
+        'Запрос генерации недельного квеста',
+        user_id=message.from_user.id,
+        username=message.from_user.username
+    )
 
-        can_generate, error_message = await check_can_generate_quest(
-            session, user.id, "weekly"
-        )
+    try:
 
-        if not can_generate:
-            await message.answer(error_message)
-            return
-
-        loading_msg = await message.answer("⏳ Генерирую недельный квест...")
-
-        try:
-            quest = await create_ai_quest_for_user(
+        async with async_session_maker() as session:
+            user = await get_or_create_user(
                 session=session,
-                user=user,
-                quest_type="weekly"
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                first_name=message.from_user.first_name
             )
 
-            tasks = json.loads(quest.tasks)
-
-            difficulty_emoji = {
-                "medium": "🟡",
-                "hard": "🔴"
-            }
-            emoji = difficulty_emoji.get(quest.difficulty, "🔴")
-
-            response = f"🏆 НОВЫЙ НЕДЕЛЬНЫЙ КВЕСТ\n\n"
-            response += f"{emoji} {quest.title}\n\n"
-            response += f"{quest.description}\n\n"
-            response += "📋 ЗАДАНИЯ НА НЕДЕЛЮ:\n"
-
-            for i, task in enumerate(tasks, 1):
-                response += f"{i}. {task}\n"
-
-            response += f"\n💪 Сложность: {quest.difficulty.upper()}"
-            response += f"\n⏰ Время: 7 дней"
-
-            await loading_msg.delete()
-
-            # Отправляем с кнопками
-            from bot.keyboards.inline import get_quest_keyboard
-            tasks_list = json.loads(quest.tasks)
-            await message.answer(
-                response,
-                reply_markup=get_quest_keyboard(quest.id, tasks_list, [])
+            can_generate, error_message = await check_can_generate_quest(
+                session, user.id, "weekly"
             )
 
-        except Exception as e:
-            await loading_msg.delete()
-            await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
+            if not can_generate:
+                await message.answer(error_message)
+                return
 
+            loading_msg = await message.answer("⏳ Генерирую недельный квест...")
+
+            try:
+                quest = await create_ai_quest_for_user(
+                    session=session,
+                    user=user,
+                    quest_type="weekly"
+                )
+
+                tasks = json.loads(quest.tasks)
+
+                difficulty_emoji = {
+                    "medium": "🟡",
+                    "hard": "🔴"
+                }
+                emoji = difficulty_emoji.get(quest.difficulty, "🔴")
+
+                response = f"🏆 НОВЫЙ НЕДЕЛЬНЫЙ КВЕСТ\n\n"
+                response += f"{emoji} {quest.title}\n\n"
+                response += f"{quest.description}\n\n"
+                response += "📋 ЗАДАНИЯ НА НЕДЕЛЮ:\n"
+
+                for i, task in enumerate(tasks, 1):
+                    response += f"{i}. {task}\n"
+
+                response += f"\n💪 Сложность: {quest.difficulty.upper()}"
+                response += f"\n⏰ Время: 7 дней"
+
+                await loading_msg.delete()
+
+                # Отправляем с кнопками
+                from bot.keyboards.inline import get_quest_keyboard
+                tasks_list = json.loads(quest.tasks)
+                await message.answer(
+                    response,
+                    reply_markup=get_quest_keyboard(quest.id, tasks_list, [])
+                )
+
+            except Exception as e:
+                logger.exception(
+                    'Ошибка при генерации недельного квеста',
+                    user_id=message.from_user.id
+                )
+                await loading_msg.delete()
+                await message.answer(f"❌ Ошибка при генерации квеста:\n{e}")
+
+    except Exception as e:
+        logger.exception(
+            'Критическая ошибка в cmd_generate_weekly',
+            user_id=message.from_user.id
+        )
+        await message.answer("❌ Произошла ошибка. Попробуйте позже.")
 
 @router.message(F.text == "📋 Мои квесты")
 @router.message(Command("my_quests"))
@@ -154,69 +192,83 @@ async def cmd_my_quests(message: Message):
     """
     from bot.keyboards.inline import get_quest_keyboard
 
-    async with async_session_maker() as session:
-        user = await get_or_create_user(
-            session=session,
-            telegram_id=message.from_user.id,
-            username=message.from_user.username,
-            first_name=message.from_user.first_name
+    logger.info(
+        'Запрос на все квесты пользователя',
+        user_id=message.from_user.id,
+        username=message.from_user.username
+    )
+
+    try:
+
+        async with async_session_maker() as session:
+            user = await get_or_create_user(
+                session=session,
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                first_name=message.from_user.first_name
+            )
+
+            pending_quests = await get_user_quests(session, user.id, status="pending")
+
+            if not pending_quests:
+                await message.answer(
+                    "📭 У тебя пока нет активных квестов.\n\n"
+                    "Создай квест используя кнопки меню:"
+                )
+                return
+
+            # Отправляем каждый квест отдельным сообщением с кнопками
+            for quest in pending_quests:
+                difficulty_emoji = {
+                    "easy": "🟢",
+                    "medium": "🟡",
+                    "hard": "🔴"
+                }
+                emoji = difficulty_emoji.get(quest.difficulty, "⚪")
+
+                tasks = json.loads(quest.tasks)
+                completed_tasks = json.loads(quest.completed_tasks)
+
+                if quest.quest_type == "daily":
+                    expires_at = quest.created_at + timedelta(hours=24)
+                    quest_icon = "⚔️"
+                    quest_type_name = "ЕЖЕДНЕВНЫЙ"
+                else:
+                    expires_at = quest.created_at + timedelta(days=7)
+                    quest_icon = "🏆"
+                    quest_type_name = "НЕДЕЛЬНЫЙ"
+
+                time_left = expires_at - datetime.utcnow()
+                hours_left = int(time_left.total_seconds() // 3600)
+                minutes_left = int((time_left.total_seconds() % 3600) // 60)
+
+                # Формируем текст с отметками выполнения
+                response = f"{quest_icon} {quest_type_name} {emoji}\n"
+                response += f"{quest.title}\n\n"
+                response += f"{quest.description}\n\n"
+                response += "Задания:\n"
+
+                for i, task in enumerate(tasks):
+                    status = "✅" if i in completed_tasks else "⬜"
+                    response += f"{i+1}. {status} {task}\n"
+
+                # Прогресс
+                progress = f"{len(completed_tasks)}/{len(tasks)}"
+                response += f"\n📊 Прогресс: {progress}"
+                response += f"\n⏰ Сгорит через: {hours_left}ч {minutes_left}мин"
+
+                # Отправляем с кнопками
+                await message.answer(
+                    response,
+                    reply_markup=get_quest_keyboard(quest.id, tasks, completed_tasks)
+                )
+
+    except Exception as e:
+        logger.exception(
+            'Критическая ошибка в cmd_my_quests',
+            user_id=message.from_user.id
         )
-
-        pending_quests = await get_user_quests(session, user.id, status="pending")
-
-        if not pending_quests:
-            await message.answer(
-                "📭 У тебя пока нет активных квестов.\n\n"
-                "Создай квест используя кнопки меню:"
-            )
-            return
-
-        # Отправляем каждый квест отдельным сообщением с кнопками
-        for quest in pending_quests:
-            difficulty_emoji = {
-                "easy": "🟢",
-                "medium": "🟡",
-                "hard": "🔴"
-            }
-            emoji = difficulty_emoji.get(quest.difficulty, "⚪")
-
-            tasks = json.loads(quest.tasks)
-            completed_tasks = json.loads(quest.completed_tasks)
-
-            if quest.quest_type == "daily":
-                expires_at = quest.created_at + timedelta(hours=24)
-                quest_icon = "⚔️"
-                quest_type_name = "ЕЖЕДНЕВНЫЙ"
-            else:
-                expires_at = quest.created_at + timedelta(days=7)
-                quest_icon = "🏆"
-                quest_type_name = "НЕДЕЛЬНЫЙ"
-
-            time_left = expires_at - datetime.utcnow()
-            hours_left = int(time_left.total_seconds() // 3600)
-            minutes_left = int((time_left.total_seconds() % 3600) // 60)
-
-            # Формируем текст с отметками выполнения
-            response = f"{quest_icon} {quest_type_name} {emoji}\n"
-            response += f"{quest.title}\n\n"
-            response += f"{quest.description}\n\n"
-            response += "Задания:\n"
-
-            for i, task in enumerate(tasks):
-                status = "✅" if i in completed_tasks else "⬜"
-                response += f"{i+1}. {status} {task}\n"
-
-            # Прогресс
-            progress = f"{len(completed_tasks)}/{len(tasks)}"
-            response += f"\n📊 Прогресс: {progress}"
-            response += f"\n⏰ Сгорит через: {hours_left}ч {minutes_left}мин"
-
-            # Отправляем с кнопками
-            await message.answer(
-                response,
-                reply_markup=get_quest_keyboard(quest.id, tasks, completed_tasks)
-            )
-
+        await message.answer("❌ Произошла ошибка. Попробуйте позже.")
 
 @router.message(F.text == "📊 Статистика")
 @router.message(Command("stats"))
@@ -226,50 +278,65 @@ async def cmd_stats(message: Message):
     """
     from services.level_service import get_level_from_experience
 
-    async with async_session_maker() as session:
-        user = await get_or_create_user(
-            session=session,
-            telegram_id=message.from_user.id,
-            username=message.from_user.username,
-            first_name=message.from_user.first_name
+    logger.info(
+        'Запрос на статистику пользователя',
+        user_id=message.from_user.id,
+        username=message.from_user.username
+    )
+
+    try:
+
+        async with async_session_maker() as session:
+            user = await get_or_create_user(
+                session=session,
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                first_name=message.from_user.first_name
+            )
+
+            # Получаем все квесты
+            all_quests = await get_user_quests(session, user.id)
+            completed = [q for q in all_quests if q.status == "completed"]
+            failed = [q for q in all_quests if q.status == "failed"]
+            pending = [q for q in all_quests if q.status == "pending"]
+
+            # Информация об уровне
+            current_level, current_exp, exp_needed = get_level_from_experience(user.experience)
+
+            # Формируем никнейм
+            if user.username:
+                nickname = f"@{user.username}"
+            else:
+                nickname = user.first_name
+
+            response = (
+                f"👤 {nickname}\n\n"
+                f"⭐ Уровень: {current_level}\n"
+                f"⚡ Опыт: {current_exp}/{exp_needed}\n\n"
+                f"📊 СТАТИСТИКА КВЕСТОВ:\n\n"
+                f"✅ Выполнено: {len(completed)}\n"
+                f"❌ Провалено: {len(failed)}\n"
+                f"⏳ Активных: {len(pending)}\n"
+                f"📈 Всего квестов: {len(all_quests)}\n"
+            )
+
+            if len(all_quests) > 0:
+                success_rate = (len(completed) / len(all_quests)) * 100
+                response += f"🎯 Процент успеха: {success_rate:.1f}%\n\n"
+
+            response += (
+                f"💪 Выполняйте больше квестов,\n"
+                f"чтобы поднять свой уровень!"
+            )
+
+            await message.answer(response)
+
+    except Exception as e:
+        logger.exception(
+            'Критическая ошибка в cmd_stats',
+            user_id=message.from_user.id
         )
-
-        # Получаем все квесты
-        all_quests = await get_user_quests(session, user.id)
-        completed = [q for q in all_quests if q.status == "completed"]
-        failed = [q for q in all_quests if q.status == "failed"]
-        pending = [q for q in all_quests if q.status == "pending"]
-
-        # Информация об уровне
-        current_level, current_exp, exp_needed = get_level_from_experience(user.experience)
-
-        # Формируем никнейм
-        if user.username:
-            nickname = f"@{user.username}"
-        else:
-            nickname = user.first_name
-
-        response = (
-            f"👤 {nickname}\n\n"
-            f"⭐ Уровень: {current_level}\n"
-            f"⚡ Опыт: {current_exp}/{exp_needed}\n\n"
-            f"📊 СТАТИСТИКА КВЕСТОВ:\n\n"
-            f"✅ Выполнено: {len(completed)}\n"
-            f"❌ Провалено: {len(failed)}\n"
-            f"⏳ Активных: {len(pending)}\n"
-            f"📈 Всего квестов: {len(all_quests)}\n"
-        )
-
-        if len(all_quests) > 0:
-            success_rate = (len(completed) / len(all_quests)) * 100
-            response += f"🎯 Процент успеха: {success_rate:.1f}%\n\n"
-
-        response += (
-            f"💪 Выполняйте больше квестов,\n"
-            f"чтобы поднять свой уровень!"
-        )
-
-        await message.answer(response)
+        await message.answer("❌ Произошла ошибка. Попробуйте позже.")
 
 @router.callback_query(F.data.startswith("toggle_task:"))
 async def callback_toggle_task(callback: CallbackQuery):

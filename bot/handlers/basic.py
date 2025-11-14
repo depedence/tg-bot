@@ -7,6 +7,7 @@ from aiogram.types import Message
 from database.database import async_session_maker
 from database.crud import get_or_create_user, save_message
 from bot.keyboards.reply import get_main_menu
+from utils.logger import logger
 
 router = Router()
 
@@ -17,40 +18,53 @@ async def cmd_start(message: Message):
     Обработчик команды /start.
     Регистрирует пользователя в БД и приветствует.
     """
-    async with async_session_maker() as session:
-        user = await get_or_create_user(
-            session=session,
-            telegram_id=message.from_user.id,
-            username=message.from_user.username,
-            first_name=message.from_user.first_name
+    logger.info(
+        'Пользователь запустил бота',
+        user_id=message.from_user.id,
+        username=message.from_user.username
+    )
+
+    try:
+        async with async_session_maker() as session:
+            user = await get_or_create_user(
+                session=session,
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                first_name=message.from_user.first_name
+            )
+
+            await save_message(
+                session=session,
+                user_id=user.id,
+                message_text=message.text,
+                is_from_user=True
+            )
+
+            response_text = (
+                f"👋 Приветствую, {message.from_user.first_name}!\n\n"
+                "⚔️ Я СИСТЕМА ПРОКАЧКИ\n\n"
+                "Я буду выдавать тебе квесты для саморазвития. "
+                "Твоя задача — выполнять их и становиться лучше с каждым днем.\n\n"
+                "Система не прощает слабости.\n"
+                "Только упорство ведет к победе.\n\n"
+                "Используй /help чтобы узнать команды."
+            )
+
+            await message.answer(response_text, reply_markup=get_main_menu())
+
+            await save_message(
+                session=session,
+                user_id=user.id,
+                message_text=response_text,
+                is_from_user=False
+            )
+
+    except Exception as e:  # ← Добавлено
+        logger.exception(
+            "Ошибка при обработке команды /start",
+            user_id=message.from_user.id
         )
-
-        await save_message(
-            session=session,
-            user_id=user.id,
-            message_text=message.text,
-            is_from_user=True
-        )
-
-        response_text = (
-            f"👋 Приветствую, {message.from_user.first_name}!\n\n"
-            "⚔️ Я СИСТЕМА ПРОКАЧКИ\n\n"
-            "Я буду выдавать тебе квесты для саморазвития. "
-            "Твоя задача — выполнять их и становиться лучше с каждым днем.\n\n"
-            "Система не прощает слабости.\n"
-            "Только упорство ведет к победе.\n\n"
-            "Используй /help чтобы узнать команды."
-        )
-
-        await message.answer(response_text, reply_markup=get_main_menu())
-
-        await save_message(
-            session=session,
-            user_id=user.id,
-            message_text=response_text,
-            is_from_user=False
-        )
-
+        await message.answer("❌ Произошла ошибка. Попробуйте позже.")
 
 @router.message(F.text == "❓ Помощь")
 @router.message(Command("help"))
