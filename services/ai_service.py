@@ -1,12 +1,17 @@
 """
 Сервис для генерации квестов через Hugging Face AI.
 """
-from huggingface_hub import InferenceClient
+import requests
 from config.settings import API_KEY
 import json
 
-# Инициализация клиента Hugging Face
-client = InferenceClient(token=API_KEY)
+API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
+headers = {"Authorization": f"Bearer {API_KEY}"}
+
+def query_hf(payload):
+    """Отправляет запрос к Hugging Face API"""
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
 
 def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     """
@@ -56,15 +61,22 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "easy/medium/hard"
 }}"""
 
-    # Используем Llama 3.2 3B Instruct
-    response = client.text_generation(
-        prompt=prompt,
-        model="meta-llama/Llama-3.2-3B-Instruct",
-        max_new_tokens=400,
-        temperature=1.0,
-    )
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 400,
+            "temperature": 1.0,
+            "return_full_text": False
+        }
+    }
 
-    content = response.strip()
+    result = query_hf(payload)
+
+    # Результат приходит в формате [{"generated_text": "..."}]
+    if isinstance(result, list) and len(result) > 0:
+        content = result[0].get("generated_text", "").strip()
+    else:
+        raise Exception(f"Unexpected response format: {result}")
 
     # Убираем markdown если есть
     if content.startswith("```json"):
@@ -128,14 +140,21 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "medium/hard"
 }}"""
 
-    response = client.text_generation(
-        prompt=prompt,
-        model="meta-llama/Llama-3.2-3B-Instruct",
-        max_new_tokens=600,
-        temperature=1.0,
-    )
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 600,
+            "temperature": 1.0,
+            "return_full_text": False
+        }
+    }
 
-    content = response.strip()
+    result = query_hf(payload)
+
+    if isinstance(result, list) and len(result) > 0:
+        content = result[0].get("generated_text", "").strip()
+    else:
+        raise Exception(f"Unexpected response format: {result}")
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
