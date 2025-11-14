@@ -69,6 +69,17 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     response = requests.post(API_URL, headers=headers, json=payload)
     result = response.json()
 
+    # Логируем ответ для отладки
+    print(f"API Response: {result}")
+
+    # Проверяем наличие ошибки
+    if 'error' in result:
+        raise Exception(f"OpenRouter API Error: {result['error']}")
+
+    # Проверяем наличие choices
+    if 'choices' not in result or len(result['choices']) == 0:
+        raise Exception(f"Unexpected API response: {result}")
+
     content = result['choices'][0]['message']['content'].strip()
 
     if content.startswith("```json"):
@@ -141,6 +152,17 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
 
     response = requests.post(API_URL, headers=headers, json=payload)
     result = response.json()
+
+    # Логируем ответ для отладки
+    print(f"API Response: {result}")
+
+    # Проверяем наличие ошибки
+    if 'error' in result:
+        raise Exception(f"OpenRouter API Error: {result['error']}")
+
+    # Проверяем наличие choices
+    if 'choices' not in result or len(result['choices']) == 0:
+        raise Exception(f"Unexpected API response: {result}")
 
     content = result['choices'][0]['message']['content'].strip()
 
