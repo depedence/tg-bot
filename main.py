@@ -1,34 +1,44 @@
 import asyncio
-import logging
 from aiogram import Bot, Dispatcher
-
-from config.settings import BOT_TOKEN
+from utils.logger import logger
+from config.settings import BOT_TOKEN, DATABASE_TYPE  # ← Добавь DATABASE_TYPE
 from bot.handlers import basic, admin
 from database.database import init_db
 from services.scheduler_service import setup_scheduler
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
 async def main():
-    await init_db()
-
-    bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher()
-
-    dp.include_router(basic.router)
-    dp.include_router(admin.router)
-
-    scheduler = setup_scheduler(bot)
-    scheduler.start()
-
-    logging.info('Бот запущен!')
-
     try:
+        # Инициализация БД
+        await init_db()
+        logger.info("✅ База данных инициализирована (тип: {db_type})", db_type=DATABASE_TYPE)
+
+        # Создание бота и диспетчера
+        bot = Bot(token=BOT_TOKEN)
+        dp = Dispatcher()
+
+        # Подключение роутеров
+        dp.include_router(basic.router)
+        dp.include_router(admin.router)
+
+        # Настройка планировщика
+        scheduler = setup_scheduler(bot)
+        scheduler.start()
+        logger.info("📅 Scheduler настроен")
+
+        logger.success("🤖 Бот запущен!")
+
+        # Запуск polling
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
-    finally:
-        scheduler.shutdown()
 
+    except Exception as e:
+        logger.exception("💥 Критическая ошибка при запуске бота")
+        raise
+    finally:
+        if 'scheduler' in locals():
+            scheduler.shutdown()
+            logger.info("⏹️ Scheduler остановлен")
+        logger.info("👋 Бот остановлен")
 
 if __name__ == '__main__':
     asyncio.run(main())
