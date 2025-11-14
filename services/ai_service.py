@@ -1,15 +1,11 @@
 """
-Сервис для генерации квестов через DeepSeek AI.
+Сервис для генерации квестов через Groq AI.
 """
-import requests
+from groq import Groq
 from config.settings import API_KEY
 import json
 
-API_URL = "https://api.deepseek.com/v1/chat/completions"
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
+client = Groq(api_key=API_KEY)
 
 def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     """
@@ -59,24 +55,14 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "easy/medium/hard"
 }}"""
 
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 1.0,
-        "max_tokens": 400
-    }
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.0,
+        max_tokens=400,
+    )
 
-    response = requests.post(API_URL, headers=headers, json=payload)
-    result = response.json()
-
-    # Проверяем ошибки
-    if 'error' in result:
-        raise Exception(f"DeepSeek API Error: {result['error']}")
-
-    if 'choices' not in result or len(result['choices']) == 0:
-        raise Exception(f"Unexpected API response: {result}")
-
-    content = result['choices'][0]['message']['content'].strip()
+    content = response.choices[0].message.content.strip()
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
@@ -139,23 +125,14 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "medium/hard"
 }}"""
 
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 1.0,
-        "max_tokens": 600
-    }
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=1.0,
+        max_tokens=600,
+    )
 
-    response = requests.post(API_URL, headers=headers, json=payload)
-    result = response.json()
-
-    if 'error' in result:
-        raise Exception(f"DeepSeek API Error: {result['error']}")
-
-    if 'choices' not in result or len(result['choices']) == 0:
-        raise Exception(f"Unexpected API response: {result}")
-
-    content = result['choices'][0]['message']['content'].strip()
+    content = response.choices[0].message.content.strip()
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
