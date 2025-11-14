@@ -5,7 +5,7 @@ import requests
 from config.settings import API_KEY
 import json
 
-API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
+API_URL = "https://router.huggingface.co/hf-inference/models/meta-llama/Llama-3.2-3B-Instruct"
 headers = {"Authorization": f"Bearer {API_KEY}"}
 
 def query_hf(payload):
