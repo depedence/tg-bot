@@ -1,11 +1,12 @@
 """
-Сервис для генерации квестов через Groq AI.
+Сервис для генерации квестов через Hugging Face AI.
 """
-from groq import Groq
+from huggingface_hub import InferenceClient
 from config.settings import API_KEY
 import json
 
-client = Groq(api_key=API_KEY)
+# Инициализация клиента Hugging Face
+client = InferenceClient(token=API_KEY)
 
 def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     """
@@ -55,15 +56,17 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "easy/medium/hard"
 }}"""
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
+    # Используем Llama 3.2 3B Instruct
+    response = client.text_generation(
+        prompt=prompt,
+        model="meta-llama/Llama-3.2-3B-Instruct",
+        max_new_tokens=400,
         temperature=1.0,
-        max_tokens=400,
     )
 
-    content = response.choices[0].message.content.strip()
+    content = response.strip()
 
+    # Убираем markdown если есть
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
     if content.startswith("```"):
@@ -125,14 +128,14 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "medium/hard"
 }}"""
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
+    response = client.text_generation(
+        prompt=prompt,
+        model="meta-llama/Llama-3.2-3B-Instruct",
+        max_new_tokens=600,
         temperature=1.0,
-        max_tokens=600,
     )
 
-    content = response.choices[0].message.content.strip()
+    content = response.strip()
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
