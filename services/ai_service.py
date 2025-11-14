@@ -1,14 +1,15 @@
 """
 Сервис для генерации квестов через OpenRouter AI (DeepSeek).
 """
-from openai import OpenAI
+import requests
 from config.settings import API_KEY
 import json
 
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=API_KEY,
-)
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+headers = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
 
 def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     """
@@ -58,14 +59,17 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "easy/medium/hard"
 }}"""
 
-    response = client.chat.completions.create(
-        model="deepseek/deepseek-chat-v3.1:free",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=1.0,
-        max_tokens=400,
-    )
+    payload = {
+        "model": "deepseek/deepseek-chat-v3.1:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 1.0,
+        "max_tokens": 400
+    }
 
-    content = response.choices[0].message.content.strip()
+    response = requests.post(API_URL, headers=headers, json=payload)
+    result = response.json()
+
+    content = result['choices'][0]['message']['content'].strip()
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
@@ -128,14 +132,17 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "medium/hard"
 }}"""
 
-    response = client.chat.completions.create(
-        model="deepseek/deepseek-chat-v3.1:free",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=1.0,
-        max_tokens=600,
-    )
+    payload = {
+        "model": "deepseek/deepseek-chat-v3.1:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 1.0,
+        "max_tokens": 600
+    }
 
-    content = response.choices[0].message.content.strip()
+    response = requests.post(API_URL, headers=headers, json=payload)
+    result = response.json()
+
+    content = result['choices'][0]['message']['content'].strip()
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
