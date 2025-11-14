@@ -5,6 +5,8 @@ import openai
 import json
 import os
 
+from config.settings import YANDEX_CLOUD_API_KEY, YANDEX_CLOUD_FOLDER
+
 # Настройки Yandex Cloud
 YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
 YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
