@@ -25,3 +25,6 @@ def get_database_url() -> str:
         return f'postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
     else:
         return "sqlite+aiosqlite:///./quest_bot.db"
+
+YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
+YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
