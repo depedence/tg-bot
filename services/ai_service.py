@@ -1,11 +1,11 @@
 """
-Сервис для генерации квестов через OpenRouter AI (DeepSeek).
+Сервис для генерации квестов через DeepSeek AI.
 """
 import requests
 from config.settings import API_KEY
 import json
 
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
+API_URL = "https://api.deepseek.com/v1/chat/completions"
 headers = {
     "Authorization": f"Bearer {API_KEY}",
     "Content-Type": "application/json"
@@ -60,7 +60,7 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
 }}"""
 
     payload = {
-        "model": "deepseek/deepseek-chat-v3.1:free",
+        "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 1.0,
         "max_tokens": 400
@@ -69,14 +69,10 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     response = requests.post(API_URL, headers=headers, json=payload)
     result = response.json()
 
-    # Логируем ответ для отладки
-    print(f"API Response: {result}")
-
-    # Проверяем наличие ошибки
+    # Проверяем ошибки
     if 'error' in result:
-        raise Exception(f"OpenRouter API Error: {result['error']}")
+        raise Exception(f"DeepSeek API Error: {result['error']}")
 
-    # Проверяем наличие choices
     if 'choices' not in result or len(result['choices']) == 0:
         raise Exception(f"Unexpected API response: {result}")
 
@@ -144,7 +140,7 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
 }}"""
 
     payload = {
-        "model": "deepseek/deepseek-chat-v3.1:free",
+        "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 1.0,
         "max_tokens": 600
@@ -153,14 +149,9 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
     response = requests.post(API_URL, headers=headers, json=payload)
     result = response.json()
 
-    # Логируем ответ для отладки
-    print(f"API Response: {result}")
-
-    # Проверяем наличие ошибки
     if 'error' in result:
-        raise Exception(f"OpenRouter API Error: {result['error']}")
+        raise Exception(f"DeepSeek API Error: {result['error']}")
 
-    # Проверяем наличие choices
     if 'choices' not in result or len(result['choices']) == 0:
         raise Exception(f"Unexpected API response: {result}")
 
