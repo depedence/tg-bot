@@ -10,6 +10,7 @@ from typing import Optional
 from services.ai_service import generate_daily_quest, generate_weekly_quest
 from services.level_service import get_level_from_experience
 from datetime import timedelta
+from utils.logger import logger
 
 
 # ========== USERS ==========
@@ -37,7 +38,12 @@ async def get_or_create_user(
         session.add(user)
         await session.commit()
         await session.refresh(user)
-        print(f"✅ Создан новый пользователь: {telegram_id}")
+        logger.info(
+            'Создан новый пользователь',
+            telegram_id=telegram_id,
+            username=username,
+            first_name=first_name
+        )
 
     return user
 
@@ -169,6 +175,11 @@ async def create_ai_quest_for_user(
     user: User,
     quest_type: str  # "daily" или "weekly"
 ) -> Quest:
+    logger.debug(
+        'Генерация AI квеста',
+        user_id=user.id,
+        quest_type=quest_type
+    )
 
     # Генерируем квест через AI
     if quest_type == "daily":
@@ -185,6 +196,14 @@ async def create_ai_quest_for_user(
         tasks=quest_data["tasks"],
         difficulty=quest_data["difficulty"],
         quest_type=quest_type
+    )
+
+    logger.success(
+        'AI квест успешно создан',
+        user_id=user.id,
+        quest_id=quest.id,
+        quest_type=quest_type,
+        title=quest_data["title"]
     )
 
     return quest
@@ -318,5 +337,21 @@ async def add_experience(
 
     await session.commit()
     await session.refresh(user)
+
+    if level_up:
+        logger.success(
+            "LEVEL UP!",
+            user_id=user.id,
+            old_level=old_level,
+            new_level=new_level,
+            total_exp=user.experience
+        )
+    else:
+        logger.debug(
+            "Опыт начислен",
+            user_id=user.id,
+            exp_amount=exp_amount,
+            total_exp=user.experience
+        )
 
     return user, level_up, new_level
