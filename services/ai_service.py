@@ -1,11 +1,19 @@
 """
-Сервис для генерации квестов через Groq AI.
+Сервис для генерации квестов через Yandex GPT.
 """
-from groq import Groq
-from config.settings import API_KEY
+import openai
 import json
+import os
 
-client = Groq(api_key=API_KEY)
+# Настройки Yandex Cloud
+YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
+YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
+YANDEX_CLOUD_MODEL = "yandexgpt-lite/latest"
+
+client = openai.OpenAI(
+    api_key=YANDEX_CLOUD_API_KEY,
+    base_url="https://rest-assistant.api.cloud.yandex.net/v1"
+)
 
 def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
     """
@@ -55,15 +63,17 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "easy/medium/hard"
 }}"""
 
-    response = client.chat.completions.create(
-        model="whisper-large-v3",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=1.0,
-        max_tokens=400,
+    response = client.responses.create(
+        model=f"gpt://{YANDEX_CLOUD_FOLDER}/{YANDEX_CLOUD_MODEL}",
+        temperature=0.7,
+        instructions="Ты - Система из аниме. Генерируй только JSON без лишнего текста.",
+        input=prompt,
+        max_output_tokens=500
     )
 
-    content = response.choices[0].message.content.strip()
+    content = response.output_text.strip()
 
+    # Убираем markdown если есть
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
     if content.startswith("```"):
@@ -125,14 +135,15 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
   "difficulty": "medium/hard"
 }}"""
 
-    response = client.chat.completions.create(
-        model="whisper-large-v3",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=1.0,
-        max_tokens=600,
+    response = client.responses.create(
+        model=f"gpt://{YANDEX_CLOUD_FOLDER}/{YANDEX_CLOUD_MODEL}",
+        temperature=0.7,
+        instructions="Ты - Система из аниме. Генерируй только JSON без лишнего текста.",
+        input=prompt,
+        max_output_tokens=700
     )
 
-    content = response.choices[0].message.content.strip()
+    content = response.output_text.strip()
 
     if content.startswith("```json"):
         content = content.replace("```json", "").replace("```", "").strip()
