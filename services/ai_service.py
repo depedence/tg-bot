@@ -56,7 +56,7 @@ def generate_daily_quest(user_name: str, user_history: str = "") -> dict:
 }}"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="llama-3.1-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
         temperature=1.0,
         max_tokens=400,
@@ -126,7 +126,7 @@ def generate_weekly_quest(user_name: str, user_history: str = "") -> dict:
 }}"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="llama-3.1-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
         temperature=1.0,
         max_tokens=600,
