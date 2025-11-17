@@ -23,6 +23,8 @@ async def cmd_generate_daily(message: Message):
     """
     Генерирует дейли квест вручную.
     """
+    from config.settings import QUEST_DAILY_HOURS
+
     logger.info(
         'Запрос генерации дейли квеста',
         user_id=message.from_user.id,
@@ -30,7 +32,6 @@ async def cmd_generate_daily(message: Message):
     )
 
     try:
-
         async with async_session_maker() as session:
             user = await get_or_create_user(
                 session=session,
@@ -74,11 +75,16 @@ async def cmd_generate_daily(message: Message):
                     response += f"{i}. {task}\n"
 
                 response += f"\n💪 Сложность: {quest.difficulty.upper()}"
-                response += f"\n⏰ Время: 24 часа"
+
+                # Форматируем время в зависимости от режима
+                if QUEST_DAILY_HOURS < 1:
+                    time_minutes = int(QUEST_DAILY_HOURS * 60)
+                    response += f"\n⏰ Время: {time_minutes} минут"
+                else:
+                    response += f"\n⏰ Время: {int(QUEST_DAILY_HOURS)} часов"
 
                 await loading_msg.delete()
 
-                # Отправляем с кнопками
                 from bot.keyboards.inline import get_quest_keyboard
                 tasks_list = json.loads(quest.tasks)
                 await message.answer(

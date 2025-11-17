@@ -1,29 +1,58 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
 
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
-YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
-# API_KEY = os.getenv('API_KEY')
+if ENVIRONMENT == "prod":
+    env_file = Path('.env.prod')
+else:
+    env_file = Path('.env.dev')
+
+if not env_file.exists():
+    raise FileNotFoundError(f"Файл конфигурации {env_file} не найден!")
+
+load_dotenv(env_file)
+
+print(f"🔧 Окружение: {ENVIRONMENT}")
+print(f"🔧 Конфиг: {env_file}")
+
+# Telegram
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+API_KEY = os.getenv("API_KEY")
 
 # Database
-DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'postgresql')
+DATABASE_TYPE = os.getenv("DATABASE_TYPE", "postgresql")
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "quest_bot")
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+# Yandex Cloud
+YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
+YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
+
+# Quest settings
+QUEST_DAILY_HOURS = float(os.getenv("QUEST_DAILY_HOURS", "24"))
+QUEST_WEEKLY_HOURS = float(os.getenv("QUEST_WEEKLY_HOURS", "168"))
+SCHEDULER_CHECK_INTERVAL = int(os.getenv("SCHEDULER_CHECK_INTERVAL", "60"))
 
 if not BOT_TOKEN:
-    raise ValueError('BOT_TOKEN не найден в .env файле')
+    raise ValueError("BOT_TOKEN не установлен!")
+if not DB_NAME:
+    raise ValueError("DB_NAME не установлен!")
 
-# if not API_KEY:
-#     raise ValueError('API_KEY не найден в .env файле')
+print(f"✅ Настройки загружены для окружения: {ENVIRONMENT}")
+
 
 def get_database_url() -> str:
-    if DATABASE_TYPE == 'postgresql':
-        return f'postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
+    """
+    Формирует строку подключения к базе данных.
+    """
+    if DATABASE_TYPE == "sqlite":
+        return f"sqlite+aiosqlite:///{DB_NAME}"
+    elif DATABASE_TYPE == "postgresql":
+        return f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     else:
-        return "sqlite+aiosqlite:///./quest_bot.db"
+        raise ValueError(f"Неподдерживаемый тип базы данных: {DATABASE_TYPE}")

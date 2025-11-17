@@ -355,3 +355,43 @@ async def add_experience(
         )
 
     return user, level_up, new_level
+
+async def mark_expired_quests(session) -> int:
+    """
+    Помечает просроченные квесты как failed.
+    Возвращает количество помеченных квестов.
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import select
+    from database.models import Quest
+    from config.settings import QUEST_DAILY_HOURS, QUEST_WEEKLY_HOURS
+    from utils.logger import logger
+
+    now = datetime.utcnow()
+
+    # Получаем все активные квесты
+    result = await session.execute(
+        select(Quest).where(Quest.status == "pending")
+    )
+    quests = result.scalars().all()
+
+    expired_count = 0
+
+    for quest in quests:
+        # Вычисляем время истечения
+        if quest.quest_type == "daily":
+            expires_at = quest.created_at + timedelta(hours=QUEST_DAILY_HOURS)
+        else:  # weekly
+            expires_at = quest.created_at + timedelta(hours=QUEST_WEEKLY_HOURS)
+
+        # Если время вышло - помечаем как failed
+        if now > expires_at:
+            quest.status = "failed"
+            expired_count += 1
+            logger.info(
+                f'Квест просрочен: ID={quest.id}, тип={quest.quest_type}, пользователь={quest.user_id}'
+            )
+
+    await session.commit()
+
+    return expired_count

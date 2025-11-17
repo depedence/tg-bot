@@ -147,20 +147,31 @@ async def send_weekly_quests(bot: Bot):
 
     logger.info("✅ Генерация недельных квестов завершена")
 
+async def check_expired_quests():
+    """
+    Проверяет и помечает просроченные квесты как failed.
+    """
+    from database.crud import mark_expired_quests
+
+    logger.info('🔍 Запуск проверки просроченных квестов')
+
+    try:
+        async with async_session_maker() as session:
+            expired_count = await mark_expired_quests(session)
+
+            if expired_count > 0:
+                logger.warning(f'⏰ Помечено просроченных квестов: {expired_count}')
+            else:
+                logger.info('✅ Просроченных квестов не найдено')
+
+    except Exception as e:
+        logger.error(f'❌ Ошибка при проверке просроченных квестов: {e}')
 
 def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
-    """
-    Настраивает и запускает scheduler для автоматической рассылки квестов.
+    from config.settings import SCHEDULER_CHECK_INTERVAL, ENVIRONMENT
 
-    Args:
-        bot: Экземпляр бота для отправки сообщений
-
-    Returns:
-        Настроенный scheduler
-    """
     scheduler = AsyncIOScheduler()
 
-    # Ежедневные квесты - каждый день в 9:00
     scheduler.add_job(
         send_daily_quests,
         trigger=CronTrigger(hour=9, minute=0),
@@ -170,7 +181,6 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         replace_existing=True
     )
 
-    # Недельные квесты - каждый понедельник в 9:00
     scheduler.add_job(
         send_weekly_quests,
         trigger=CronTrigger(day_of_week='mon', hour=9, minute=0),
@@ -180,8 +190,18 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         replace_existing=True
     )
 
+    scheduler.add_job(
+        check_expired_quests,
+        trigger='interval',
+        minutes=SCHEDULER_CHECK_INTERVAL,
+        id='check_expired_quests',
+        name=f'Проверка просроченных квестов ({ENVIRONMENT})',
+        replace_existing=True
+    )
+
     logger.info("📅 Scheduler настроен:")
     logger.info("   - Ежедневные квесты: каждый день в 9:00")
     logger.info("   - Недельные квесты: каждый понедельник в 9:00")
+    logger.info(f"   - Проверка просроченных: каждые {SCHEDULER_CHECK_INTERVAL} мин")
 
     return scheduler
