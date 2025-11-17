@@ -147,6 +147,25 @@ async def send_weekly_quests(bot: Bot):
 
     logger.info("✅ Генерация недельных квестов завершена")
 
+async def check_expired_quests():
+    """
+    Проверяет и помечает просроченные квесты как failed.
+    """
+    from database.crud import mark_expired_quests
+
+    logger.info('🔍 Запуск проверки просроченных квестов')
+
+    try:
+        async with async_session_maker() as session:
+            expired_count = await mark_expired_quests(session)
+
+            if expired_count > 0:
+                logger.warning(f'⏰ Помечено просроченных квестов: {expired_count}')
+            else:
+                logger.info('✅ Просроченных квестов не найдено')
+
+    except Exception as e:
+        logger.error(f'❌ Ошибка при проверке просроченных квестов: {e}')
 
 def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
     from config.settings import SCHEDULER_CHECK_INTERVAL, ENVIRONMENT

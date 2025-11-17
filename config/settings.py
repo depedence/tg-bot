@@ -38,10 +38,21 @@ QUEST_DAILY_HOURS = float(os.getenv("QUEST_DAILY_HOURS", "24"))
 QUEST_WEEKLY_HOURS = float(os.getenv("QUEST_WEEKLY_HOURS", "168"))
 SCHEDULER_CHECK_INTERVAL = int(os.getenv("SCHEDULER_CHECK_INTERVAL", "60"))
 
-# Проверяем обязательные переменные
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не установлен!")
 if not DB_NAME:
     raise ValueError("DB_NAME не установлен!")
 
 print(f"✅ Настройки загружены для окружения: {ENVIRONMENT}")
+
+
+def get_database_url() -> str:
+    """
+    Формирует строку подключения к базе данных.
+    """
+    if DATABASE_TYPE == "sqlite":
+        return f"sqlite+aiosqlite:///{DB_NAME}"
+    elif DATABASE_TYPE == "postgresql":
+        return f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    else:
+        raise ValueError(f"Неподдерживаемый тип базы данных: {DATABASE_TYPE}")
