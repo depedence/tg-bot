@@ -149,18 +149,10 @@ async def send_weekly_quests(bot: Bot):
 
 
 def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
-    """
-    Настраивает и запускает scheduler для автоматической рассылки квестов.
+    from config.settings import SCHEDULER_CHECK_INTERVAL, ENVIRONMENT
 
-    Args:
-        bot: Экземпляр бота для отправки сообщений
-
-    Returns:
-        Настроенный scheduler
-    """
     scheduler = AsyncIOScheduler()
 
-    # Ежедневные квесты - каждый день в 9:00
     scheduler.add_job(
         send_daily_quests,
         trigger=CronTrigger(hour=9, minute=0),
@@ -170,7 +162,6 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         replace_existing=True
     )
 
-    # Недельные квесты - каждый понедельник в 9:00
     scheduler.add_job(
         send_weekly_quests,
         trigger=CronTrigger(day_of_week='mon', hour=9, minute=0),
@@ -180,8 +171,18 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         replace_existing=True
     )
 
+    scheduler.add_job(
+        check_expired_quests,
+        trigger='interval',
+        minutes=SCHEDULER_CHECK_INTERVAL,
+        id='check_expired_quests',
+        name=f'Проверка просроченных квестов ({ENVIRONMENT})',
+        replace_existing=True
+    )
+
     logger.info("📅 Scheduler настроен:")
     logger.info("   - Ежедневные квесты: каждый день в 9:00")
     logger.info("   - Недельные квесты: каждый понедельник в 9:00")
+    logger.info(f"   - Проверка просроченных: каждые {SCHEDULER_CHECK_INTERVAL} мин")
 
     return scheduler
