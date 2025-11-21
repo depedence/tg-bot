@@ -19,6 +19,7 @@ print(f"🔧 Конфиг: {env_file}")
 
 # Telegram
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_IDS = [int(id.strip()) for id in os.getenv("ADMIN_IDS", "").split(",") if id.strip()]
 API_KEY = os.getenv("API_KEY")
 
 # Database
