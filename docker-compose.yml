@@ -6,6 +6,7 @@ services:
     container_name: quest_rpg_bot
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
+      ADMIN_IDS: ${ADMIN_IDS}
       API_KEY: ${API_KEY}
       DATABASE_TYPE: postgresql
       DB_HOST: localhost
