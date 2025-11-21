@@ -1,8 +1,8 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from utils.logger import logger
-from config.settings import BOT_TOKEN, DATABASE_TYPE  # ← Добавь DATABASE_TYPE
-from bot.handlers import basic, admin
+from config.settings import BOT_TOKEN, DATABASE_TYPE
+from bot.handlers import basic, admin, admin_handlers
 from database.database import init_db
 from services.scheduler_service import setup_scheduler
 
@@ -19,6 +19,7 @@ async def main():
         # Подключение роутеров
         dp.include_router(basic.router)
         dp.include_router(admin.router)
+        dp.include_router(admin_handlers.router)
 
         # Настройка планировщика
         scheduler = setup_scheduler(bot)

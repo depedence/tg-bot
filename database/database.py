@@ -1,5 +1,7 @@
+from typing import Any, AsyncGenerator
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
-from database.models import Base  # ← импортируй Base из models
+from database.models import Base
 from config.settings import get_database_url, DATABASE_TYPE
 import logging
 
@@ -36,6 +38,6 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
     print(f"✅ База данных инициализирована (тип: {DATABASE_TYPE})")
 
-async def get_session() -> AsyncSession:
+async def get_session() -> AsyncGenerator[AsyncSession | Any, Any]:
     async with async_session_maker() as session:
         yield session
